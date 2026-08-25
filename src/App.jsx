@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 
+const COMMANDS = {
+  ENABLE: "ENABLE",
+  PAUSE: "PAUSE",
+  DISABLE: "DISABLE",
+  CLOSE_ALL: "CLOSE_ALL",
+  KILL: "KILL",
+};
+
 export default function App() {
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [commandLoading, setCommandLoading] = useState(null);
+  const [message, setMessage] = useState("");
 
   async function loadBots() {
     setError("");
@@ -38,6 +48,87 @@ export default function App() {
     setLoading(false);
   }
 
+  async function sendCommand(bot, command) {
+    const dangerous = ["CLOSE_ALL", "KILL"];
+
+    if (dangerous.includes(command)) {
+      const confirmed = window.confirm(
+        `Xác nhận lệnh ${command} cho ${bot.ea_name || "EA"}?`
+      );
+
+      if (!confirmed) return;
+    }
+
+    setCommandLoading(`${bot.id}-${command}`);
+    setMessage("");
+    setError("");
+
+    // Tránh gửi cùng một lệnh khi lệnh trước vẫn pending
+    const { data: pending, error: pendingError } = await supabase
+      .from("bot_commands")
+      .select("id")
+      .eq("bot_instance_id", bot.id)
+      .eq("status", "pending")
+      .limit(1);
+
+    if (pendingError) {
+      setError(pendingError.message);
+      setCommandLoading(null);
+      return;
+    }
+
+    if (pending && pending.length > 0) {
+      setError(
+        "Bot đang có một lệnh chờ xử lý. Hãy chờ EA nhận lệnh trước."
+      );
+      setCommandLoading(null);
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("bot_commands")
+      .insert({
+        bot_instance_id: bot.id,
+        command,
+        status: "pending",
+        message: `Dashboard command: ${command}`,
+      });
+
+    if (insertError) {
+      setError(insertError.message);
+      setCommandLoading(null);
+      return;
+    }
+
+    setMessage(
+      `${command} đã được gửi. EA sẽ nhận ở heartbeat tiếp theo.`
+    );
+
+    setCommandLoading(null);
+
+    // Cập nhật trạng thái hiển thị nếu là ENABLE/PAUSE
+    setBots((current) =>
+      current.map((item) => {
+        if (item.id !== bot.id) return item;
+
+        if (command === COMMANDS.ENABLE) {
+          return { ...item, enabled: true };
+        }
+
+        if (
+          command === COMMANDS.PAUSE ||
+          command === COMMANDS.DISABLE ||
+          command === COMMANDS.CLOSE_ALL ||
+          command === COMMANDS.KILL
+        ) {
+          return { ...item, enabled: false };
+        }
+
+        return item;
+      })
+    );
+  }
+
   useEffect(() => {
     loadBots();
 
@@ -46,13 +137,25 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  const onlineCount = bots.filter(
+    (bot) => bot.status === "online"
+  ).length;
+
+  const enabledCount = bots.filter(
+    (bot) => bot.enabled === true
+  ).length;
+
   return (
     <div className="dashboard">
       <header className="topbar">
         <div>
           <h1>GIANG QUANT X</h1>
-          <p>EA Management Dashboard</p>
+          <p>EA Remote Management Dashboard</p>
         </div>
+
+        <button className="refresh-btn" onClick={loadBots}>
+          ↻ Làm mới
+        </button>
       </header>
 
       <main className="main">
@@ -64,26 +167,35 @@ export default function App() {
 
           <div className="summary-card">
             <span>Online</span>
-            <strong>
-              {bots.filter((bot) => bot.status === "online").length}
-            </strong>
+            <strong>{onlineCount}</strong>
           </div>
 
           <div className="summary-card">
             <span>Đang Bật</span>
-            <strong>
-              {bots.filter((bot) => bot.enabled).length}
-            </strong>
+            <strong>{enabledCount}</strong>
           </div>
         </div>
 
+        {message && (
+          <div className="success-box">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="error-box">
+            {error}
+          </div>
+        )}
+
         <section className="panel">
           <div className="panel-title">
-            <h2>EA Bots</h2>
-
-            <button onClick={loadBots}>
-              Làm mới
-            </button>
+            <div>
+              <h2>EA Bots</h2>
+              <p>
+                Điều khiển EA đang chạy trên MT5
+              </p>
+            </div>
           </div>
 
           {loading && (
@@ -92,114 +204,170 @@ export default function App() {
             </div>
           )}
 
-          {error && (
-            <div className="error">
-              Supabase Error: {error}
-            </div>
-          )}
-
-          {!loading && !error && bots.length === 0 && (
+          {!loading && bots.length === 0 && (
             <div className="empty">
-              Chưa có EA nào kết nối.
+              Chưa có bot nào kết nối.
             </div>
           )}
 
           <div className="bot-list">
-            {bots.map((bot) => (
-              <div className="bot-card" key={bot.id}>
-                <div className="bot-header">
-                  <div>
-                    <h3>
-                      {bot.ea_name || "GIANG QUANT X"}
-                    </h3>
+            {bots.map((bot) => {
+              const isOnline = bot.status === "online";
+              const isEnabled = bot.enabled === true;
 
-                    <p>
-                      EA Version: {bot.ea_version || "--"}
-                    </p>
+              return (
+                <div className="bot-card" key={bot.id}>
+                  <div className="bot-header">
+                    <div>
+                      <h3>
+                        {bot.ea_name || "GIANG QUANT X"}
+                      </h3>
+
+                      <p>
+                        Version {bot.ea_version || "--"} ·{" "}
+                        {bot.symbol || "--"} ·{" "}
+                        {bot.timeframe || "--"}
+                      </p>
+                    </div>
+
+                    <div
+                      className={
+                        isOnline
+                          ? "status online"
+                          : "status offline"
+                      }
+                    >
+                      {isOnline ? "● ONLINE" : "● OFFLINE"}
+                    </div>
                   </div>
 
-                  <span
-                    className={
-                      bot.status === "online"
-                        ? "online"
-                        : "offline"
-                    }
-                  >
-                    {bot.status === "online"
-                      ? "● ONLINE"
-                      : "● OFFLINE"}
-                  </span>
+                  <div className="bot-grid">
+                    <div>
+                      <span>MT5 Account ID</span>
+                      <strong>{bot.mt5_account_id}</strong>
+                    </div>
+
+                    <div>
+                      <span>Balance</span>
+                      <strong>
+                        {Number(bot.balance || 0).toFixed(2)}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Equity</span>
+                      <strong>
+                        {Number(bot.equity || 0).toFixed(2)}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Daily Profit</span>
+                      <strong>
+                        {Number(
+                          bot.daily_profit || 0
+                        ).toFixed(2)}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Drawdown</span>
+                      <strong>
+                        {Number(bot.drawdown || 0).toFixed(2)}%
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Remote</span>
+                      <strong
+                        className={
+                          isEnabled
+                            ? "text-green"
+                            : "text-red"
+                        }
+                      >
+                        {isEnabled ? "BẬT" : "TẮT"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="control-box">
+                    <button
+                      className="btn-enable"
+                      disabled={
+                        commandLoading !== null ||
+                        isEnabled
+                      }
+                      onClick={() =>
+                        sendCommand(
+                          bot,
+                          COMMANDS.ENABLE
+                        )
+                      }
+                    >
+                      {commandLoading ===
+                      `${bot.id}-ENABLE`
+                        ? "ĐANG GỬI..."
+                        : "BẬT BOT"}
+                    </button>
+
+                    <button
+                      className="btn-pause"
+                      disabled={
+                        commandLoading !== null ||
+                        !isEnabled
+                      }
+                      onClick={() =>
+                        sendCommand(
+                          bot,
+                          COMMANDS.PAUSE
+                        )
+                      }
+                    >
+                      {commandLoading ===
+                      `${bot.id}-PAUSE`
+                        ? "ĐANG GỬI..."
+                        : "TẠM DỪNG"}
+                    </button>
+
+                    <button
+                      className="btn-close"
+                      disabled={commandLoading !== null}
+                      onClick={() =>
+                        sendCommand(
+                          bot,
+                          COMMANDS.CLOSE_ALL
+                        )
+                      }
+                    >
+                      CLOSE ALL
+                    </button>
+
+                    <button
+                      className="btn-kill"
+                      disabled={commandLoading !== null}
+                      onClick={() =>
+                        sendCommand(
+                          bot,
+                          COMMANDS.KILL
+                        )
+                      }
+                    >
+                      KILL
+                    </button>
+                  </div>
+
+                  <div className="last-seen">
+                    Last Seen:{" "}
+                    {bot.last_seen
+                      ? new Date(
+                          bot.last_seen
+                        ).toLocaleString("vi-VN")
+                      : "--"}
+                  </div>
                 </div>
-
-                <div className="bot-info">
-                  <div>
-                    <span>MT5 Account</span>
-                    <strong>{bot.mt5_account_id}</strong>
-                  </div>
-
-                  <div>
-                    <span>Symbol</span>
-                    <strong>{bot.symbol || "--"}</strong>
-                  </div>
-
-                  <div>
-                    <span>Balance</span>
-                    <strong>{bot.balance ?? 0}</strong>
-                  </div>
-
-                  <div>
-                    <span>Equity</span>
-                    <strong>{bot.equity ?? 0}</strong>
-                  </div>
-
-                  <div>
-                    <span>Daily Profit</span>
-                    <strong>{bot.daily_profit ?? 0}</strong>
-                  </div>
-
-                  <div>
-                    <span>Drawdown</span>
-                    <strong>
-                      {bot.drawdown ?? 0}%
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="remote-status">
-                  Remote:
-                  <strong>
-                    {bot.enabled ? " BẬT" : " TẮT"}
-                  </strong>
-                </div>
-
-                <div className="actions">
-                  <button className="btn-enable">
-                    BẬT BOT
-                  </button>
-
-                  <button className="btn-pause">
-                    TẠM DỪNG
-                  </button>
-
-                  <button className="btn-close">
-                    CLOSE ALL
-                  </button>
-
-                  <button className="btn-kill">
-                    KILL
-                  </button>
-                </div>
-
-                <div className="last-seen">
-                  Last Seen:{" "}
-                  {bot.last_seen
-                    ? new Date(
-                        bot.last_seen
-                      ).toLocaleString("vi-VN")
-                    : "--"}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </main>

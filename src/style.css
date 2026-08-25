@@ -7,7 +7,7 @@ body,
 
 body {
   font-family: Arial, sans-serif;
-  background: #f5f7fb;
+  background: #f3f4f6;
   color: #111827;
 }
 
@@ -15,27 +15,46 @@ body {
   box-sizing: border-box;
 }
 
+button {
+  font-family: inherit;
+}
+
 .dashboard {
   min-height: 100vh;
 }
 
 .topbar {
-  padding: 25px 40px;
   background: #111827;
   color: white;
+  padding: 24px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .topbar h1 {
   margin: 0;
+  font-size: 24px;
 }
 
 .topbar p {
   margin: 6px 0 0;
-  color: #cbd5e1;
+  color: #9ca3af;
+}
+
+.refresh-btn {
+  border: 0;
+  background: #2563eb;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 .main {
-  padding: 30px 40px;
+  max-width: 1400px;
+  margin: auto;
+  padding: 30px;
 }
 
 .summary {
@@ -57,11 +76,9 @@ body {
   padding: 22px;
 }
 
-.summary-card span,
-.bot-info span {
+.summary-card span {
   display: block;
   color: #64748b;
-  font-size: 13px;
   margin-bottom: 8px;
 }
 
@@ -73,20 +90,13 @@ body {
   padding: 25px;
 }
 
-.panel-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+.panel-title h2 {
+  margin: 0;
 }
 
-.panel-title button {
-  border: 0;
-  background: #2563eb;
-  color: white;
-  padding: 10px 16px;
-  border-radius: 8px;
-  cursor: pointer;
+.panel-title p {
+  color: #64748b;
+  margin: 6px 0 20px;
 }
 
 .bot-list {
@@ -95,14 +105,14 @@ body {
 }
 
 .bot-card {
-  padding: 22px;
   border: 1px solid #e5e7eb;
+  padding: 22px;
 }
 
 .bot-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  gap: 20px;
 }
 
 .bot-header h3 {
@@ -114,49 +124,65 @@ body {
   color: #64748b;
 }
 
+.status {
+  font-weight: bold;
+}
+
 .online {
   color: #16a34a;
-  font-weight: bold;
 }
 
 .offline {
   color: #dc2626;
-  font-weight: bold;
 }
 
-.bot-info {
+.bot-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
+  gap: 14px;
   margin-top: 22px;
 }
 
-.bot-info div {
+.bot-grid div {
   background: #f8fafc;
   padding: 14px;
   border-radius: 10px;
 }
 
-.remote-status {
-  margin-top: 18px;
-  padding: 12px;
-  background: #f8fafc;
-  border-radius: 8px;
+.bot-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 7px;
 }
 
-.actions {
+.text-green {
+  color: #16a34a;
+}
+
+.text-red {
+  color: #dc2626;
+}
+
+.control-box {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 18px;
+  margin-top: 20px;
 }
 
-.actions button {
+.control-box button {
   border: 0;
-  padding: 10px 14px;
+  color: white;
+  padding: 11px 16px;
   border-radius: 8px;
   cursor: pointer;
-  color: white;
+  font-weight: 600;
+}
+
+.control-box button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .btn-enable {
@@ -175,32 +201,45 @@ body {
   background: #111827;
 }
 
+.last-seen {
+  margin-top: 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+
 .empty {
-  text-align: center;
   padding: 50px;
+  text-align: center;
   color: #64748b;
 }
 
-.error {
-  padding: 15px;
+.error-box {
   background: #fee2e2;
   color: #991b1b;
+  padding: 14px;
   border-radius: 8px;
+  margin-bottom: 20px;
 }
 
-.last-seen {
-  margin-top: 15px;
-  font-size: 13px;
-  color: #64748b;
+.success-box {
+  background: #dcfce7;
+  color: #166534;
+  padding: 14px;
+  border-radius: 8px;
+  margin-bottom: 20px;
 }
 
 @media (max-width: 800px) {
   .summary,
-  .bot-info {
+  .bot-grid {
     grid-template-columns: 1fr;
   }
 
   .main {
+    padding: 20px;
+  }
+
+  .topbar {
     padding: 20px;
   }
 }

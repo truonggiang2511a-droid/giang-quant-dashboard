@@ -1,65 +1,92 @@
-import "./style.css";
+import { useEffect, useState } from "react";
+import { supabase } from "./supabase";
 
-function App() {
+export default function App() {
+  const [bots, setBots] = useState([]);
+  const [error, setError] = useState("");
+
+  async function loadBots() {
+    const { data, error } = await supabase
+      .from("bot_instances")
+      .select(`
+        id,
+        mt5_account_id,
+        ea_name,
+        ea_version,
+        symbol,
+        timeframe,
+        status,
+        enabled,
+        last_seen,
+        balance,
+        equity,
+        daily_profit,
+        drawdown
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setBots(data || []);
+  }
+
+  useEffect(() => {
+    loadBots();
+
+    const timer = setInterval(loadBots, 10000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <h2>GIANG QUANT</h2>
+    <div style={{ padding: 30 }}>
+      <h1>GIANG QUANT X</h1>
 
-        <div className="menu active">Dashboard</div>
-        <div className="menu">Khách hàng</div>
-        <div className="menu">EA Bots</div>
-        <div className="menu">License</div>
-        <div className="menu">Tài khoản MT5</div>
-        <div className="menu">Lịch sử hoạt động</div>
-        <div className="menu">Cài đặt</div>
-      </aside>
+      {error && (
+        <div style={{ color: "red", marginBottom: 20 }}>
+          Database error: {error}
+        </div>
+      )}
 
-      <main className="content">
-        <header>
-          <div>
-            <h1>Bot Management Dashboard</h1>
-            <p>Quản lý EA và tài khoản khách hàng</p>
+      {bots.length === 0 ? (
+        <p>Chưa có bot nào kết nối.</p>
+      ) : (
+        bots.map((bot) => (
+          <div
+            key={bot.id}
+            style={{
+              marginBottom: 15,
+              padding: 20,
+              border: "1px solid #ddd",
+              borderRadius: 10
+            }}
+          >
+            <h3>{bot.ea_name}</h3>
+
+            <p>EA: {bot.ea_version}</p>
+            <p>Symbol: {bot.symbol}</p>
+            <p>
+              Trạng thái:{" "}
+              <strong>
+                {bot.enabled ? "ĐANG BẬT" : "ĐANG TẮT"}
+              </strong>
+            </p>
+
+            <p>MT5 Account ID: {bot.mt5_account_id}</p>
+            <p>Balance: {bot.balance}</p>
+            <p>Equity: {bot.equity}</p>
+            <p>Daily Profit: {bot.daily_profit}</p>
+            <p>DD: {bot.drawdown}%</p>
+
+            <p>
+              Last Seen: {bot.last_seen || "Chưa kết nối"}
+            </p>
           </div>
-
-          <button className="logout">Đăng xuất</button>
-        </header>
-
-        <section className="stats">
-          <div className="card">
-            <span>Tổng khách hàng</span>
-            <strong>0</strong>
-          </div>
-
-          <div className="card">
-            <span>EA đang chạy</span>
-            <strong>0</strong>
-          </div>
-
-          <div className="card">
-            <span>EA đang tắt</span>
-            <strong>0</strong>
-          </div>
-
-          <div className="card">
-            <span>License hết hạn</span>
-            <strong>0</strong>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <h2>EA Bot</h2>
-            <button className="add">+ Thêm Bot</button>
-          </div>
-
-          <div className="empty">
-            Chưa có EA nào trong hệ thống
-          </div>
-        </section>
-      </main>
+        ))
+      )}
     </div>
   );
 }
-
-export default App;

@@ -1,8 +1,8 @@
 export default function App() {
   return (
-    <div style={{ padding: 40, fontFamily: "Arial" }}>
-      <h1>GIANG QUANT DASHBOARD</h1>
-      <p>Vercel đang chạy bình thường.</p>
+    <div style={{ padding: "40px", fontFamily: "Arial, sans-serif" }}>
+      <h1>GIANG QUANT X</h1>
+      <p>Dashboard V2 đang hoạt động.</p>
     </div>
   );
 }
